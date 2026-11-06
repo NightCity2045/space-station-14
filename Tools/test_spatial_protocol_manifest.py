@@ -6,7 +6,7 @@ from spatial_protocol_manifest import validate_protocol_manifest
 
 class ProtocolManifestTest(unittest.TestCase):
     def setUp(self):
-        protocol = dict(id="ss14-spatial-295", wire_revision=1, map_format=8,
+        protocol = dict(id="ss14-spatial-295", wire_revision=2, geometry_wire_schema=1, map_format=8,
                         transform_schema=1, world_schema=1, geometry_schema=1,
                         physics_backend="BepuPhysics", physics_version="2.4.0")
         fingerprint = hashlib.sha256("".join(f"{k}={protocol[k]}\n" for k in sorted(protocol)).encode()).hexdigest().upper()
@@ -31,6 +31,16 @@ class ProtocolManifestTest(unittest.TestCase):
         source = dict(self.manifest["spatial_protocol"], geometry_schema=2)
         with self.assertRaises(ValueError):
             validate_protocol_manifest(self.manifest, source)
+
+    def test_geometry_wire_schema_is_required_by_the_streaming_protocol(self):
+        for value in (None, True, 0, "1"):
+            changed = copy.deepcopy(self.manifest)
+            changed["spatial_protocol"]["geometry_wire_schema"] = value
+            protocol = changed["spatial_protocol"]
+            changed["spatial_protocol_fingerprint"] = hashlib.sha256(
+                "".join(f"{k}={protocol[k]}\n" for k in sorted(protocol)).encode()).hexdigest().upper()
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, "geometry_wire_schema"):
+                validate_protocol_manifest(changed)
 
 
 if __name__ == "__main__":

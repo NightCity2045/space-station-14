@@ -12,6 +12,9 @@ def validate_protocol_manifest(manifest, expected=None):
     for key in ("wire_revision", "map_format", "transform_schema", "world_schema", "geometry_schema"):
         if type(protocol.get(key)) is not int or protocol[key] <= 0:
             raise ValueError(f"Invalid protocol field: {key}")
+    if protocol["wire_revision"] >= 2:
+        if type(protocol.get("geometry_wire_schema")) is not int or protocol["geometry_wire_schema"] <= 0:
+            raise ValueError("Invalid protocol field: geometry_wire_schema")
     if expected is not None and protocol != expected:
         raise ValueError("Engine artifact protocol differs from the pinned engine source")
     for key in ("physics_backend", "physics_version"):
