@@ -10,6 +10,7 @@ With Python 3.11+ and SDK 10.0.100:
 ```sh
 git submodule update --init --recursive
 python3 Tools/package_spatial_pair.py --runtime linux-x64 --output release/qualification-pair
+python3 Tools/verify_spatial_pair.py --pair release/qualification-pair --output release/qualification-install
 ```
 
 Use `win-x64` on the Windows runner. An already built standalone engine ZIP can
@@ -24,6 +25,13 @@ Extract the client ZIP to a new directory. Start `start.sh` (Linux) or `start.cm
 package libraries. Linux still needs the normal desktop driver/system libraries.
 Content verification remains enabled. No source checkout or developer-specific
 absolute paths are needed to run the extracted client.
+
+The verification command checks archive hashes, extracts both packages, starts
+the loopback server and a headless client, and requires both a player attachment
+and explicit sandbox verification in the client log. It records logs and results,
+then stops its own processes. It does not certify graphical rendering or a full
+round. Existing integration suites cover round and map/editor behavior; G1–G15
+and the graphical/load scenarios require their own evidence.
 
 The server ZIP uses the existing headless packaging path and requires the .NET 10
 runtime. Extract it separately and run `dotnet Robust.Server.dll` with the server's

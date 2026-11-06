@@ -56,6 +56,8 @@ jobs:
         run: dotnet test Content.IntegrationTests/Content.IntegrationTests.csproj -c DebugOpt --no-build --no-restore --filter "FullyQualifiedName!~Content.IntegrationTests.Tests.GameRules" --logger "trx;LogFileName=content-other.trx" --results-directory release/qualification -- NUnit.ConsoleOut=0 NUnit.MapWarningTo=Failed
       - name: Package matching client and server after tests
         run: python Tools/package_spatial_pair.py --runtime ${{ matrix.runtime }} --output release/qualification/pair
+      - name: Launch extracted pair with sandbox enabled
+        run: python Tools/verify_spatial_pair.py --pair release/qualification/pair --output release/qualification/installed
       - name: Archive results and manifests
         if: always()
         uses: actions/upload-artifact@v4
