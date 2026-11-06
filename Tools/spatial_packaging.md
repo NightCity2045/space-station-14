@@ -28,10 +28,14 @@ absolute paths are needed to run the extracted client.
 
 The verification command checks archive hashes, extracts both packages, starts
 the loopback server and a headless client, and requires both a player attachment
-and explicit sandbox verification in the client log. It records logs and results,
+on Packed with the lobby disabled and explicit sandbox verification in the client log. It records logs and results,
 then stops its own processes. It does not certify graphical rendering or a full
 round. Existing integration suites cover round and map/editor behavior; G1–G15
 and the graphical/load scenarios require their own evidence.
+
+The content packager runs from a temporary published copy. Content.Server has a
+project reference to Content.Packaging, so running it directly from its build
+directory causes recursive Rebuild to overwrite loaded DLLs and fail on Windows.
 
 The server ZIP uses the existing headless packaging path and requires the .NET 10
 runtime. Extract it separately and run `dotnet Robust.Server.dll` with the server's

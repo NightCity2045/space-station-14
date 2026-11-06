@@ -83,13 +83,15 @@ def main():
     server_log = output / 'server.log'
     client_log = output / 'client.log'
     server = client = None
-    outcome = {'pair': manifest, 'joined': False, 'sandbox_verified': False}
+    outcome = {'pair': manifest, 'scenario': 'Packed, lobby disabled',
+               'joined': False, 'sandbox_verified': False}
     try:
         with server_log.open('w', encoding='utf-8') as server_stream, client_log.open('w', encoding='utf-8') as client_stream:
             server = subprocess.Popen([
                 'dotnet', 'Robust.Server.dll', '--data-dir', str(output / 'server-data'),
                 '--cvar', 'net.bindto=127.0.0.1', '--cvar', f'net.port={args.port}',
-                '--cvar', f'status.bind=127.0.0.1:{args.port}', '--cvar', 'hub.advertise=false'
+                '--cvar', f'status.bind=127.0.0.1:{args.port}', '--cvar', 'hub.advertise=false',
+                '--cvar', 'game.lobbyenabled=false', '--cvar', 'game.map=Packed'
             ], cwd=output / 'server', stdout=server_stream, stderr=subprocess.STDOUT)
             await_log(server, server_log, '-> Ready', args.timeout)
             executable = 'Robust.Client.exe' if os.name == 'nt' else 'Robust.Client'
@@ -107,6 +109,8 @@ def main():
                 raise RuntimeError('Client joined without sandbox verification evidence')
             if server.poll() is not None:
                 raise RuntimeError('Server exited during join')
+            if '[ERRO]' in server_log.read_text(encoding='utf-8', errors='replace'):
+                raise RuntimeError('Server logged an error before player attachment; inspect server.log')
             outcome.update(joined=True, sandbox_verified=True)
     finally:
         stop(client)

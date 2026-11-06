@@ -11,6 +11,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import tempfile
 import zipfile
 
 
@@ -68,13 +69,19 @@ def main():
             if hashlib.sha256(archive.read(name)).hexdigest() != digest:
                 raise RuntimeError(f"Engine payload hash mismatch: {name}")
 
-    # Each stage completes before the next one can touch its outputs.
-    run("dotnet", "run", "--project", "Content.Packaging", "-c", "Release", "--",
-        "server", "--platform", args.runtime, "--configuration", "Release", "--no-wipe-release")
-    server = output / f"SS14.Server_{args.runtime}.zip"
-    shutil.copyfile(ROOT / "release" / server.name, server)
-    run("dotnet", "run", "--project", "Content.Packaging", "-c", "Release", "--",
-        "client", "--configuration", "Release", "--no-wipe-release")
+    # Content.Server references Content.Packaging. Its recursive Rebuild must not
+    # overwrite DLLs of the running packager, which are locked on Windows.
+    # Execute a published copy outside those build outputs instead.
+    with tempfile.TemporaryDirectory(prefix="ss14-packaging-") as temporary:
+        run("dotnet", "publish", "Content.Packaging/Content.Packaging.csproj",
+            "-c", "Release", "--no-self-contained", "-m:2", "--output", temporary)
+        packager = str(Path(temporary) / "Content.Packaging.dll")
+        # Each stage completes before the next one can touch its outputs.
+        run("dotnet", packager, "server", "--platform", args.runtime,
+            "--configuration", "Release", "--no-wipe-release")
+        server = output / f"SS14.Server_{args.runtime}.zip"
+        shutil.copyfile(ROOT / "release" / server.name, server)
+        run("dotnet", packager, "client", "--configuration", "Release", "--no-wipe-release")
     content_archive = ROOT / "release/SS14.Client.zip"
     content_digest = sha256(content_archive)
 
