@@ -416,6 +416,7 @@ namespace Content.IntegrationTests.Tests
                 "SpatialGeometry",
                 "SpatialPhysicsWorld",
                 "SpatialBody",
+                "SpatialConstraint",
                 "Broadphase",
                 "StationData", // errors when removed mid-round
                 "StationJobs",

@@ -50,14 +50,33 @@ public sealed class SpatialLifecycleTest : GameTest
                     physics.ConfigureInitialBody((body, bodyComp), new SpatialBodyDefinition(SpatialMotionOwner.DynamicBody,
                         new[] { new SpatialColliderDefinition(new SpatialSphereShape(0.25f), RigidTransform3.Identity) }));
                     entities.InitializeAndStartEntity(body, map);
+                    var link = entities.CreateEntityUninitialized(null, world, RigidTransform3.Identity);
+                    var connection = entities.AddComponent<SpatialConstraintComponent>(link);
+                    physics.ConfigureInitialConstraint((link, connection), new SpatialConstraintDefinition(frame, body,
+                        SpatialConstraintKind.DistanceRange, localAnchorA: new Vector3(0, 0, 4),
+                        maximumDistance: 10, collideConnected: true));
+                    entities.InitializeAndStartEntity(link, map);
                     for (var tick = 0; tick < 150; tick++)
                         physics.Update(1f / 30);
                     Assert.That(transforms.GetWorldPose(body).Position.Z, Is.EqualTo(4.25f).Within(0.03));
                     Assert.That(bodyComp.LinearVelocity.Length(), Is.LessThan(0.05));
                     Assert.That(geometry.CaptureSnapshot(frame).SolidParts, Has.Count.EqualTo(1));
+                    Assert.That(physics.IsConstraintActive(link), Is.True);
+                    ISpatialQueryService queries = entities.System<SpatialQuerySystem>();
+                    var context = new SpatialQueryContext(world, frame, "integration-placement", uint.MaxValue);
+                    Assert.That(queries.FindSurface(context, new Vector3(2, 0, 6), -Vector3.UnitZ, 4)!.Value.Surface,
+                        Is.EqualTo(surface));
+                    Assert.That(queries.IsVolumeFree(context, new SpatialSphereShape(0.2f),
+                        new RigidTransform3(new Vector3(2, 0, 4), Quaternion.Identity)), Is.False);
+                    physics.ReconfigureBody((body, bodyComp), bodyComp.Definition, 0,
+                        bodyComp.LinearVelocity, bodyComp.AngularVelocity);
+                    physics.Update(1f / 30);
+                    Assert.That(bodyComp.DefinitionRevision, Is.EqualTo(1));
+                    Assert.That(physics.IsConstraintActive(link), Is.True);
                     entities.DeleteEntity(world);
                     Assert.That(entities.EntityExists(frame), Is.False);
                     Assert.That(entities.EntityExists(body), Is.False);
+                    Assert.That(physics.IsConstraintActive(link), Is.False);
                 }
                 finally
                 {
