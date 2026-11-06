@@ -410,6 +410,12 @@ namespace Content.IntegrationTests.Tests
                 "RoomFill",
                 "Map", // We aren't testing a map entity in this test
                 "MapGrid",
+                // These require a map/frame or a configured body definition.
+                // SpatialLifecycleTest exercises their actual lifecycle together.
+                "SpatialWorld",
+                "SpatialGeometry",
+                "SpatialPhysicsWorld",
+                "SpatialBody",
                 "Broadphase",
                 "StationData", // errors when removed mid-round
                 "StationJobs",
