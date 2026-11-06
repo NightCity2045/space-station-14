@@ -13,6 +13,7 @@ import signal
 import subprocess
 import time
 import zipfile
+from spatial_protocol_manifest import validate_protocol_manifest
 
 
 def digest(path):
@@ -77,6 +78,15 @@ def main():
                            (client_zip, manifest['client_archive_sha256'])):
         if digest(path) != expected:
             raise RuntimeError(f'Artifact hash mismatch: {path}')
+    with zipfile.ZipFile(client_zip) as archive:
+        engine = json.loads(archive.read('engine-manifest.json'))
+        embedded = json.loads(archive.read('pair-manifest.json'))
+    validate_protocol_manifest(engine, manifest['spatial_protocol'])
+    validate_protocol_manifest(manifest)
+    if embedded != {key: value for key, value in manifest.items() if key != 'client_archive_sha256'}:
+        raise RuntimeError('Embedded and external pair manifests disagree')
+    if engine['engine_commit'] != manifest['engine_commit'] or engine['runtime'] != runtime or engine['source_dirty']:
+        raise RuntimeError('Engine artifact does not match the clean fixed pair')
     output.mkdir(parents=True)
     extract(server_zip, output / 'server')
     extract(client_zip, output / 'client')

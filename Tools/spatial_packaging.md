@@ -43,6 +43,10 @@ configuration. For local qualification, bind network and status to loopback and
 disable hub advertising. Do not expose a qualification server publicly.
 
 The pair manifest records exact commits, upstream base, SDK, backend, runtime,
-resource archive and binary archive hashes. Spatial schema/protocol are null
-until implemented and versioned. These are G0 artifacts, not proof of G1–G15,
+resource archive and binary archive hashes. Spatial schema versions, protocol
+descriptor and its SHA-256 fingerprint must match the pinned engine source and
+the embedded engine/pair manifests. A legacy artifact without this descriptor
+is rejected before packaging or starting either executable. Run the manifest
+checks with `python3 -m unittest discover -s Tools -p test_spatial_protocol_manifest.py`.
+These are G0 artifacts, not proof of G1–G15,
 spatial gameplay, supported-platform results or performance acceptance.

@@ -13,6 +13,7 @@ import subprocess
 import sys
 import tempfile
 import zipfile
+from spatial_protocol_manifest import validate_protocol_manifest
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -61,6 +62,8 @@ def main():
                 or engine_manifest["runtime"] != args.runtime
                 or engine_manifest["source_dirty"]):
             raise RuntimeError("Engine artifact does not describe this clean, fixed pair")
+        protocol = validate_protocol_manifest(engine_manifest, json.loads(
+            (ENGINE / "Robust.Shared/Spatial/spatial-protocol.json").read_text(encoding="utf-8")))
         names = archive.namelist()
         expected = set(engine_manifest["files"]) | {"engine-manifest.json"}
         if len(names) != len(set(names)) or set(names) != expected:
@@ -95,8 +98,10 @@ def main():
         "sdk": engine_manifest["sdk"],
         "physics_backend": engine_manifest["physics_backend"],
         "physics_version": engine_manifest["physics_version"],
-        "spatial_schema": None,
-        "spatial_protocol": None,
+        "spatial_schema": {key: protocol[key] for key in
+                           ("map_format", "transform_schema", "world_schema", "geometry_schema")},
+        "spatial_protocol": protocol,
+        "spatial_protocol_fingerprint": engine_manifest["spatial_protocol_fingerprint"],
         "content_archive_sha256": content_digest,
         "engine_archive_sha256": sha256(engine_archive),
         "server_archive_sha256": sha256(server),
