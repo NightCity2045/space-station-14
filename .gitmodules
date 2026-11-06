@@ -1,4 +1,4 @@
 [submodule "RobustToolbox"]
 	path = RobustToolbox
 	url = https://github.com/NightCity2045/RobustToolbox.git
-	branch = align-engine-295.0.1
+	branch = spatial-foundation
