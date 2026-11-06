@@ -1,0 +1,59 @@
+name: Spatial fixed pair
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [spatial-foundation]
+  pull_request:
+    branches: [spatial-foundation]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: spatial-pair-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            runtime: linux-x64
+          - os: windows-2022
+            runtime: win-x64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4.2.2
+        with:
+          submodules: recursive
+      - uses: actions/setup-dotnet@v4.1.0
+        with:
+          dotnet-version: 10.0.100
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Record fixed pair and actual runner
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force release/qualification
+          New-Item -ItemType File -Force BuildChecker/DISABLE_SUBMODULE_AUTOUPDATE
+          @{ ImageOS = $env:ImageOS; ImageVersion = $env:ImageVersion; Content = (git rev-parse HEAD); Engine = (git -C RobustToolbox rev-parse HEAD); SDK = (dotnet --version) } | ConvertTo-Json | Set-Content release/qualification/runner.json
+      - name: Build fixed pair
+        run: dotnet build -c DebugOpt -m:2
+      - name: Content unit tests
+        run: dotnet test Content.Tests/Content.Tests.csproj -c DebugOpt --no-build --no-restore --logger "trx;LogFileName=content-unit.trx" --results-directory release/qualification
+      - name: Content integration tests
+        run: dotnet test Content.IntegrationTests/Content.IntegrationTests.csproj -c DebugOpt --no-build --no-restore --logger "trx;LogFileName=content-integration.trx" --results-directory release/qualification -- NUnit.ConsoleOut=0 NUnit.MapWarningTo=Failed
+      - name: Package matching client and server after tests
+        run: python Tools/package_spatial_pair.py --runtime ${{ matrix.runtime }} --output release/qualification/pair
+      - name: Archive results and manifests
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: spatial-pair-${{ matrix.runtime }}
+          path: release/qualification/
+          retention-days: 14
