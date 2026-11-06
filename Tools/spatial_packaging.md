@@ -50,3 +50,26 @@ is rejected before packaging or starting either executable. Run the manifest
 checks with `python3 -m unittest discover -s Tools -p test_spatial_protocol_manifest.py`.
 These are G0 artifacts, not proof of G1–G15,
 spatial gameplay, supported-platform results or performance acceptance.
+
+## Fixed-pair CI partitions
+
+The spatial-pair workflow runs three disjoint integration partitions on separate
+Linux and Windows runners: GameRules, namespaces Tests.A through Tests.L excluding
+GameRules, and the exact complement of both. New/nonstandard namespaces go to the
+complement automatically. No test is intentionally removed or weakened. Existing
+explicit/ignored test policy is unchanged. Unit and protocol/tooling tests run once
+per OS with GameRules. Independent runner lifetimes reduce lost work after runner
+shutdowns and keep each test process below the suite's existing time limit.
+
+After a DebugOpt build, `python Tools/run_spatial_tests.py --partition late
+--runtime linux-x64 --results /new/result/directory` runs one partition. Substitute
+early/game-rules and the actual runtime as appropriate. The script rejects stale
+results, empty/failed/unfinished TRX, or a test belonging to another partition.
+It records result hash, exact commits, filter, runtime and dirty-source status.
+
+Packaging jobs start only after all six test jobs succeed. They download all three
+receipts for their runtime and verify hashes, counters, exact filters and the clean
+fixed pair before rebuilding Release and performing the installed sandbox join.
+Run `python -m unittest discover -s Tools -p "test_spatial_*.py"` to check these gates.
+Splitting jobs mitigates long-runner interruption; it does not reinterpret an
+interrupted runner as a pass or guarantee that hosted infrastructure cannot fail.

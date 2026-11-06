@@ -15,17 +15,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  qualify:
+  tests:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: ubuntu-24.04
-            runtime: linux-x64
-          - os: windows-2022
-            runtime: win-x64
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 90
+        platform:
+          - { os: ubuntu-24.04, runtime: linux-x64 }
+          - { os: windows-2022, runtime: win-x64 }
+        partition: [game-rules, early, late]
+    runs-on: ${{ matrix.platform.os }}
+    timeout-minutes: 45
     env:
       DOTNET_gcServer: '1'
     steps:
@@ -47,23 +46,60 @@ jobs:
       - name: Build fixed pair
         run: dotnet build -c DebugOpt -m:2
       - name: Content unit tests
+        if: matrix.partition == 'game-rules'
         run: dotnet test Content.Tests/Content.Tests.csproj -c DebugOpt --no-build --no-restore --logger "trx;LogFileName=content-unit.trx" --results-directory release/qualification
-      # The suite has a 20-minute process lifetime limit. Partition its slow round
-      # fixtures from the complement; every non-explicit test still runs once.
-      - name: Content integration tests (game rules)
-        run: dotnet test Content.IntegrationTests/Content.IntegrationTests.csproj -c DebugOpt --no-build --no-restore --filter "FullyQualifiedName~Content.IntegrationTests.Tests.GameRules" --logger "trx;LogFileName=content-game-rules.trx" --results-directory release/qualification -- NUnit.ConsoleOut=0 NUnit.MapWarningTo=Failed
-      - name: Content integration tests (remaining fixtures)
-        run: dotnet test Content.IntegrationTests/Content.IntegrationTests.csproj -c DebugOpt --no-build --no-restore --filter "FullyQualifiedName!~Content.IntegrationTests.Tests.GameRules" --logger "trx;LogFileName=content-other.trx" --results-directory release/qualification -- NUnit.ConsoleOut=0 NUnit.MapWarningTo=Failed
-      - name: Validate protocol manifest checks
-        run: python -m unittest discover -s Tools -p test_spatial_protocol_manifest.py
+      # Separate runner lifetimes avoid losing all results when a long job is
+      # preempted. The late filter is the exact complement, including new namespaces.
+      - name: Content integration partition
+        run: python Tools/run_spatial_tests.py --partition ${{ matrix.partition }} --runtime ${{ matrix.platform.runtime }}
+      - name: Validate qualification tooling
+        if: matrix.partition == 'game-rules'
+        run: python -m unittest discover -s Tools -p "test_spatial_*.py"
+      - name: Archive test results and fixed-pair receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: spatial-tests-${{ matrix.platform.runtime }}-${{ matrix.partition }}
+          path: release/qualification/
+          retention-days: 14
+
+  package:
+    needs: tests
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - { os: ubuntu-24.04, runtime: linux-x64 }
+          - { os: windows-2022, runtime: win-x64 }
+    runs-on: ${{ matrix.platform.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4.2.2
+        with:
+          submodules: recursive
+      - uses: actions/setup-dotnet@v4.1.0
+        with:
+          dotnet-version: 10.0.100
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Keep the tested engine pin
+        shell: pwsh
+        run: New-Item -ItemType File -Force BuildChecker/DISABLE_SUBMODULE_AUTOUPDATE
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: spatial-tests-${{ matrix.platform.runtime }}-*
+          path: release/qualification/tests
+      - name: Verify all test partitions match this fixed pair
+        run: python Tools/run_spatial_tests.py --verify-directory release/qualification/tests --runtime ${{ matrix.platform.runtime }}
       - name: Package matching client and server after tests
-        run: python Tools/package_spatial_pair.py --runtime ${{ matrix.runtime }} --output release/qualification/pair
+        run: python Tools/package_spatial_pair.py --runtime ${{ matrix.platform.runtime }} --output release/qualification/pair
       - name: Launch extracted pair with sandbox enabled
         run: python Tools/verify_spatial_pair.py --pair release/qualification/pair --output release/qualification/installed
       - name: Archive results and manifests
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: spatial-pair-${{ matrix.runtime }}
+          name: spatial-pair-${{ matrix.platform.runtime }}
           path: release/qualification/
           retention-days: 14
