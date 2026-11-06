@@ -6,6 +6,7 @@ using Content.Shared.Spatial;
 using Content.Shared.Maps;
 using Robust.Shared.ContentPack;
 using Robust.Shared.Prototypes;
+using YamlDotNet.RepresentationModel;
 
 namespace Content.IntegrationTests.Tests;
 
@@ -40,5 +41,19 @@ public sealed class SpatialAssetCatalogTest : GameTest
         var output = Path.Combine(TestContext.CurrentContext.WorkDirectory, "spatial-asset-catalog.json");
         File.WriteAllText(output, JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
         TestContext.AddTestAttachment(output, "Resolved B01 asset and explicit-profile review inventory");
+        var yaml = SpatialAssetCatalogYaml.Write(report);
+        var document = new YamlStream();
+        document.Load(new StringReader(yaml));
+        var root = (YamlMappingNode) document.Documents.Single().RootNode;
+        Assert.That(((YamlSequenceNode) root.Children[new YamlScalarNode("Entities")]).Children.Count, Is.EqualTo(report.Entities.Length));
+        Assert.That(((YamlSequenceNode) root.Children[new YamlScalarNode("Tiles")]).Children.Count, Is.EqualTo(report.Tiles.Length));
+        Assert.That(((YamlSequenceNode) root.Children[new YamlScalarNode("Resources")]).Children.Count, Is.EqualTo(report.Resources.Length));
+        var exportedWall = ((YamlSequenceNode) root.Children[new YamlScalarNode("Entities")]).Children.Cast<YamlMappingNode>()
+            .Single(node => ((YamlScalarNode) node.Children[new YamlScalarNode("Prototype")]).Value == "WallSolid");
+        Assert.That(((YamlSequenceNode) exportedWall.Children[new YamlScalarNode("Resources")]).Children
+            .Cast<YamlScalarNode>().Select(node => node.Value), Does.Contain("/Textures/Structures/Walls/solid.rsi"));
+        var yamlOutput = Path.ChangeExtension(output, ".yml");
+        File.WriteAllText(yamlOutput, yaml);
+        TestContext.AddTestAttachment(yamlOutput, "Sandbox-compatible client catalog export");
     }
 }

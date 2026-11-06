@@ -14,7 +14,7 @@ public static class SpatialMaterialBinding
     /// </param>
     public static SpatialRenderMaterial Resolve(SpatialMaterialPrototype profile, Texture? texture)
     {
-        ArgumentNullException.ThrowIfNull(profile);
+        if (profile == null) throw new ArgumentException("A material profile is required.", nameof(profile));
         profile.Validate();
         if ((profile.Texture != null) != (texture != null))
             throw new ArgumentException("The authored image binding must be fully resolved before rendering.");

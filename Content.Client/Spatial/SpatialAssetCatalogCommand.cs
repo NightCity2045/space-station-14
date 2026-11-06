@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Content.Shared.Spatial;
 using Robust.Shared.Console;
 using Robust.Shared.ContentPack;
@@ -19,8 +18,8 @@ public sealed partial class SpatialAssetCatalogCommand : IConsoleCommand
     {
         if (args.Length != 0) { shell.WriteError(Help); return; }
         var report = SpatialAssetCatalog.Build(_prototypes, _resources);
-        _resources.UserData.WriteAllText(new ResPath("/spatial-asset-catalog.json"), JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
-        shell.WriteLine($"Saved spatial-asset-catalog.json: {report.Entities.Length} entities, {report.Tiles.Length} tiles, {report.Resources.Length} resources, "
+        _resources.UserData.WriteAllText(new ResPath("/spatial-asset-catalog.yml"), SpatialAssetCatalogYaml.Write(report));
+        shell.WriteLine($"Saved spatial-asset-catalog.yml: {report.Entities.Length} entities, {report.Tiles.Length} tiles, {report.Resources.Length} resources, "
             + $"{report.UnboundEntities} unbound visual/mechanical entities, {report.InvalidBindings} invalid bindings. Review is still required.");
     }
 }

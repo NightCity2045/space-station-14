@@ -1,6 +1,8 @@
 using System;
 using System.Linq;
-using System.Text.Json;
+using System.IO;
+using System.Globalization;
+using YamlDotNet.RepresentationModel;
 using Content.Shared.Spatial.Prototypes;
 using Content.Shared.Maps;
 using Robust.Shared.ContentPack;
@@ -150,18 +152,25 @@ public static class SpatialAssetCatalog
                 {
                     try
                     {
-                        using var document = JsonDocument.Parse(stream);
-                        var root = document.RootElement;
-                        width = root.GetProperty("size").GetProperty("x").GetInt32();
-                        height = root.GetProperty("size").GetProperty("y").GetInt32();
+                        // JSON RSI manifests are valid YAML. Use the existing sandboxed
+                        // document API, without granting content reflection-based JSON access.
+                        using var reader = new StreamReader(stream);
+                        var document = new YamlStream();
+                        document.Load(reader);
+                        var root = document.Documents[0].RootNode.ToDataNodeCast<MappingDataNode>();
+                        var size = root.Get<MappingDataNode>("size");
+                        width = int.Parse(size.Get<ValueDataNode>("x").Value, CultureInfo.InvariantCulture);
+                        height = int.Parse(size.Get<ValueDataNode>("y").Value, CultureInfo.InvariantCulture);
                         if (width <= 0 || height <= 0) errors.Add("rsi_invalid_dimensions");
-                        foreach (var state in root.GetProperty("states").EnumerateArray())
+                        foreach (var node in root.Get<SequenceDataNode>("states").Sequence)
                         {
-                            var name = state.GetProperty("name").GetString() ?? "";
-                            var directions = state.TryGetProperty("directions", out var direction) ? direction.GetInt32() : 1;
+                            var state = (MappingDataNode) node;
+                            var name = state.Get<ValueDataNode>("name").Value;
+                            var directions = state.TryGet<ValueDataNode>("directions", out var direction) ? int.Parse(direction.Value, CultureInfo.InvariantCulture) : 1;
                             float[][]? delays = null;
-                            if (state.TryGetProperty("delays", out var delay))
-                                delays = delay.EnumerateArray().Select(row => row.EnumerateArray().Select(v => v.GetSingle()).ToArray()).ToArray();
+                            if (state.TryGet<SequenceDataNode>("delays", out var delay))
+                                delays = delay.Sequence.Cast<SequenceDataNode>().Select(row => row.Sequence.Cast<ValueDataNode>()
+                                    .Select(v => float.Parse(v.Value, CultureInfo.InvariantCulture)).ToArray()).ToArray();
                             var exists = resources.ContentFileExists(new ResPath(path + "/" + name + ".png"));
                             states.Add(new SpatialAssetState(name, directions, delays, exists));
                             if (string.IsNullOrWhiteSpace(name) || directions is not (1 or 4 or 8) || !exists)
@@ -173,7 +182,7 @@ public static class SpatialAssetCatalog
                         if (states.Select(s => s.Name).Distinct(StringComparer.Ordinal).Count() != states.Count)
                             errors.Add("rsi_duplicate_states");
                     }
-                    catch (Exception e) when (e is JsonException or InvalidOperationException or KeyNotFoundException or FormatException or OverflowException)
+                    catch (Exception e)
                     {
                         errors.Add("rsi_metadata_invalid:" + e.GetType().Name);
                     }

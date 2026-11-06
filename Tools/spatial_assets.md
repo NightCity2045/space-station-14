@@ -30,7 +30,7 @@ work. Decorative tiles do not create structural support or airtightness.
 ## Resolved catalog
 
 Run `spatial_asset_catalog` in the content client. It writes
-`spatial-asset-catalog.json` to the client's user-data directory. The integration
+`spatial-asset-catalog.yml` to the client's user-data directory. The integration
 test `SpatialAssetCatalogTest` exports the same report as a test attachment.
 
 The catalog reads the engine's resolved entity/tile prototype mappings, including
