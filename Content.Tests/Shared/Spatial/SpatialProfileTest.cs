@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Numerics;
 using Content.Shared.Spatial.Prototypes;
+using Content.Client.Spatial;
 using NUnit.Framework;
 using Robust.Shared.IoC;
 using Robust.Shared.Prototypes;
@@ -55,6 +56,15 @@ public sealed class SpatialProfileTest : ContentUnitTest
               footprint: -2,-2,2,2
               thickness: 0.2
               slabOpenings: ["-0.5,-0.5,0.5,0.5"]
+            - type: spatialMaterial
+              id: MaterialFixture
+              texture: /Textures/Tiles/steel.png
+              color: 0.2, 0.5, 1, 0.4
+              emission: 0.1, 0.2, 0.3
+              repeat: 2, 3
+              alpha: Cutout
+              alphaCutoff: 0.3
+              sampling: PixelMip
             """);
         prototypes.ResolveResults();
         var presentation = prototypes.Index<SpatialPresentationPrototype>("ProfileFixture");
@@ -70,6 +80,10 @@ public sealed class SpatialProfileTest : ContentUnitTest
         Assert.That(window.BoundaryOpenings[0].Top, Is.EqualTo(2.4f));
         var floor = prototypes.Index<SpatialGeometryPrototype>("FloorFixture");
         Assert.That(floor.SlabOpenings, Has.Length.EqualTo(1));
+        var material = prototypes.Index<SpatialMaterialPrototype>("MaterialFixture");
+        Assert.That(material.Color, Is.EqualTo(new Vector4(0.2f, 0.5f, 1, 0.4f)));
+        Assert.That(material.AlphaCutoff, Is.EqualTo(0.3f));
+        Assert.That(material.Sampling, Is.EqualTo(SpatialMaterialSampling.PixelMip));
     }
 
     [Test]
@@ -115,5 +129,22 @@ public sealed class SpatialProfileTest : ContentUnitTest
         var deck = floor.CreateSlab(surface, layer).BuildSolidParts(new LayerDefinition(4, "Upper"));
         Assert.That(deck.Any(p => p.Bounds.Contains(new Vector3(0, 0, 3.9f))), Is.False);
         Assert.That(deck.Any(p => p.Bounds.Contains(new Vector3(1, 0, 3.9f))), Is.True);
+    }
+
+    [Test]
+    public void VisualMaterialPolicyDoesNotSelectBarrierOrInventMissingImages()
+    {
+        var material = new SpatialMaterialPrototype { Alpha = SpatialMaterialAlpha.Transparent,
+            Color = new Vector4(0.2f, 0.5f, 1, 0.4f), Emission = new Vector3(0.1f), Repeat = new Vector2(2, 3) };
+        var bound = SpatialMaterialBinding.Resolve(material, null);
+        Assert.That(bound.AlphaMode, Is.EqualTo(Robust.Client.Graphics.Spatial.SpatialAlphaMode.Transparent));
+        Assert.That(bound.Emission, Is.EqualTo(material.Emission));
+        Assert.That(bound.Repeat, Is.EqualTo(material.Repeat));
+        material.Texture = new Robust.Shared.Utility.ResPath("/Textures/Tiles/steel.png");
+        Assert.Throws<ArgumentException>(() => SpatialMaterialBinding.Resolve(material, null));
+        material.Texture = null; material.Sampling = SpatialMaterialSampling.PixelMip;
+        Assert.Throws<ArgumentException>(material.Validate);
+        material.Sampling = SpatialMaterialSampling.Nearest; material.Emission = new Vector3(float.NaN);
+        Assert.Throws<ArgumentException>(material.Validate);
     }
 }

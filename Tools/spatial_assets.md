@@ -15,6 +15,11 @@ second transform or perform engine rendering/physics:
   normalized gas conductance and sound transmission. Shader alpha never assigns
   these values. Gameplay adapters must select profiles from existing authoritative
   door/window state and commit geometry/topology together.
+- `spatialMaterial`: existing static PNG binding, linear color/emission, metre UV
+  repeat, alpha mode/cutoff and sampling. SpatialMaterialBinding translates these
+  explicitly to engine render data and refuses an unresolved authored texture.
+  PixelMip resources must finish isolated engine uploads before binding; loading,
+  ownership and complete baseline material assignments remain integration work.
 
 Dimensions and state coverage must be authored for the actual object. There is no
 automatic blanket assignment to existing mechanical prototypes. A decorative
